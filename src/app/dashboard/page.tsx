@@ -90,7 +90,7 @@ function runWithoutMediaPipeInfoOverlay<T>(operation: () => T): T {
 }
 
 export default function DashboardPage() {
-  const { getValueFromToken, logout, secureFetch } = useTideCloak();
+  const { getValueFromToken, logout, secureFetch, mode } = useTideCloak();
   const [data, setData] = useState<AccountResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -435,7 +435,7 @@ export default function DashboardPage() {
       <aside className="bank-sidebar">
         <a className="brand sidebar-brand" href="/"><span className="brand-mark">C</span><span>CoSign Bank</span></a>
         <nav className="side-nav"><a className="active" href="#overview">Overview</a><a href="#withdraw">Withdraw</a><a href="#owners">Co-owners</a><a href="#security">Security</a></nav>
-        <div className="sidebar-proof"><span className="proof-dot" />Tide session active<small>JWT + strict DPoP</small></div>
+        <div className="sidebar-proof"><span className="proof-dot" />{mode === "tidecloak" ? "Tide session active" : mode === "supabase" ? "Supabase session active" : "Simulated session"}<small>{mode === "tidecloak" ? "JWT + strict DPoP" : mode === "supabase" ? "Email/password · token verified" : "Not Tide cryptography"}</small></div>
         <button className="signout-link" onClick={logout}>Sign out</button>
       </aside>
 
@@ -446,7 +446,7 @@ export default function DashboardPage() {
         {notice && <div className="alert warning" role="status">{notice}</div>}
 
         {loading && !data ? (
-          <section className="panel centered-panel"><div className="loader" /><h2>Verifying your Tide session</h2><p>The server checks the JWT and DPoP proof before returning account data.</p></section>
+          <section className="panel centered-panel"><div className="loader" /><h2>Verifying your session</h2><p>{mode === "tidecloak" ? "The server checks the Tide JWT and DPoP proof before returning account data." : mode === "supabase" ? "The server verifies your Supabase access token and joint-owner role before returning account data." : "The server verifies the simulated token and joint-owner role before returning account data."}</p></section>
         ) : data ? (
           <>
             <section className="dashboard-grid" id="overview">
@@ -467,7 +467,7 @@ export default function DashboardPage() {
                 <label className="bank-field amount-field"><span>Amount</span><div><b>₫</b><input inputMode="numeric" value={form.amountVnd} onChange={(event) => setForm({ ...form, amountVnd: event.target.value.replace(/\D/g, "") })} required /></div><small>Maximum protected amount: ₫100,000,000</small></label>
                 <div className="field-row"><label className="bank-field"><span>Recipient</span><input value={form.recipientName} maxLength={80} onChange={(event) => setForm({ ...form, recipientName: event.target.value })} required /></label><label className="bank-field"><span>Bank</span><input value={form.recipientBank} maxLength={80} onChange={(event) => setForm({ ...form, recipientBank: event.target.value })} required /></label></div>
                 <div className="field-row"><label className="bank-field"><span>Account last 4 digits</span><input inputMode="numeric" pattern="[0-9]{4}" value={form.accountLast4} onChange={(event) => setForm({ ...form, accountLast4: event.target.value.replace(/\D/g, "").slice(0, 4) })} required /></label><label className="bank-field"><span>Purpose</span><input value={form.reason} maxLength={160} onChange={(event) => setForm({ ...form, reason: event.target.value })} /></label></div>
-                <div className="request-warning"><span>!</span><p>Tide verifies each identity and role. At 2/2, this prototype automatically completes a synthetic withdrawal; no real funds move.</p></div>
+                <div className="request-warning"><span>!</span><p>{mode === "tidecloak" ? "Tide verifies each identity and role." : "The server verifies each identity and role."} At 2/2, this prototype automatically completes a synthetic withdrawal; no real funds move.</p></div>
                 <button className="button dark full" disabled={submitting}>{submitting ? "Sharing secure request…" : "Request co-owner approval"}<span>→</span></button>
               </form>
 

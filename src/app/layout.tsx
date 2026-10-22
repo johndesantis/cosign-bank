@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Providers, SimulatedProviders } from "./providers";
+import { Providers, SimulatedProviders, SupabaseProviders } from "./providers";
 import { PreviewMode } from "./preview-mode";
 import { ConfigWarnings } from "./config-warnings";
 import { SimulatedIdentityBanner } from "./simulated-identity-banner";
 import { tryLoadTideConfig, adapterDiagnostics } from "@/lib/auth/tidecloakConfig";
-import { demoAuthEnabled } from "@/lib/auth/authMode";
+import { authMode } from "@/lib/auth/authMode";
 import "./globals.css";
 
 // Authentication is resolved per request:
 //
-//   adapter present  → real TideCloak (OIDC, DPoP-bound tokens, realm roles)
-//   adapter absent   → simulated identity (DEMO_AUTH, default on)
-//   DEMO_AUTH=0      → preview/configuration page
+//   adapter present      → real TideCloak (OIDC, DPoP-bound tokens, realm roles)
+//   Supabase configured  → email/password accounts in Supabase Auth
+//   neither, DEMO_AUTH≠0 → simulated identity
+//   nothing at all       → preview/configuration page
 //
 // The adapter is deployment configuration (adapter env vars or data/tidecloak.json,
 // gitignored), so rendering is dynamic rather than frozen at build time.
@@ -34,7 +35,7 @@ export default async function RootLayout({
   // deployment or simply local development.
   const host = (await headers()).get("host");
   const { config, error, warnings } = tryLoadTideConfig(host);
-  const simulated = !config && demoAuthEnabled();
+  const mode = authMode();
 
   return (
     <html lang="en">
@@ -44,7 +45,9 @@ export default async function RootLayout({
             {warnings.length > 0 && <ConfigWarnings warnings={warnings} />}
             {children}
           </Providers>
-        ) : simulated ? (
+        ) : mode === "supabase" ? (
+          <SupabaseProviders>{children}</SupabaseProviders>
+        ) : mode === "simulated" ? (
           <SimulatedProviders>
             <SimulatedIdentityBanner />
             {children}

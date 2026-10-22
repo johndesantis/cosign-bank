@@ -4,6 +4,7 @@ import { TideCloakProvider } from "@tidecloak/nextjs";
 import type { TidecloakConfig } from "@/lib/auth/tidecloakConfig";
 import { ProfileOnboarding } from "@/components/ProfileOnboarding";
 import { DemoBridge, RealBridge } from "@/lib/tide/bridge";
+import { SupabaseBridge } from "@/lib/tide/supabaseBridge";
 
 // Auth providers. The app talks to `useTideCloak()` from "@/lib/tide/bridge", which
 // is backed by one of two implementations:
@@ -40,6 +41,14 @@ export function Providers({
       </RealBridge>
     </TideCloakProvider>
   );
+}
+
+/**
+ * Providers for Supabase email/password accounts (`authMode() === "supabase"`).
+ * The screens, hooks and role checks are identical to the other two backends.
+ */
+export function SupabaseProviders({ children }: { children: React.ReactNode }) {
+  return <SupabaseBridge>{children}</SupabaseBridge>;
 }
 
 /**

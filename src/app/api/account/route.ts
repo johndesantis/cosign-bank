@@ -39,8 +39,16 @@ export const GET = withRole("account:joint-owner", async (_request, jwt) => {
       security: {
         authMode: mode,
         syntheticStore: bankStorageMode(),
-        tideLogin: mode === "tidecloak" ? "verified-server-side" : "simulated-not-tidecloak",
-        dpop: mode === "tidecloak" ? "strict" : "not-applicable-simulated",
+        tideLogin:
+          mode === "tidecloak"
+            ? "tidecloak-verified-server-side"
+            : mode === "supabase"
+              ? "supabase-email-password-verified-server-side"
+              : "simulated-not-tidecloak",
+        dpop:
+          mode === "tidecloak" ? "strict" : "not-applicable-" + mode,
+        tokenVerification:
+          mode === "supabase" ? "verified-with-supabase-auth-server" : mode,
         applicationApproval: "server-enforced-demo",
         signingPolicy: "requires-tide-team-deployment",
         biometricLiveness: "client-camera-challenge",

@@ -20,7 +20,7 @@ export default function DashboardLayout({
   }, [isInitializing, authenticated, login]);
 
   if (isInitializing || !authenticated) {
-    return <main className="center-screen"><div className="loader" />Checking Tide session…</main>;
+    return <main className="center-screen"><div className="loader" />Checking your session…</main>;
   }
 
   return <>{children}</>;

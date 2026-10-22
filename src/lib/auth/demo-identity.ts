@@ -1,5 +1,6 @@
 import { jwtVerify, SignJWT } from "jose";
 import type { JWTPayload } from "jose";
+import { JOINT_OWNER_ROLE } from "./roles";
 
 // Simulated TideCloak identity.
 //
@@ -33,7 +34,7 @@ const DEMO_SECRET =
 
 const DEMO_ISSUER = "urn:cosign-bank:simulated-tidecloak";
 
-export const JOINT_OWNER_ROLE = "account:joint-owner";
+export { JOINT_OWNER_ROLE };
 
 export type DemoPersona = {
   /** Stable id used by the simulator UI */

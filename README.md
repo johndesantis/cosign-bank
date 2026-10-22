@@ -105,21 +105,65 @@ npm run reset:faces
 The app has one `useTideCloak()` surface (`src/lib/tide/bridge.tsx`) with two backends, chosen
 at request time by `authMode()`:
 
-| Mode | When | Sign-in | Server access checks | DPoP |
+| Mode | When (precedence top-down) | Sign-in | Server access checks | DPoP |
 | :--- | :--- | :--- | :--- | :--- |
 | `tidecloak` | an adapter resolves (`CLIENT_ADAPTER*` or `data/tidecloak.json`) | real Tide OIDC | `verifyTideJWT` + `withRole` | verified |
-| `simulated` | no adapter, `DEMO_AUTH` not `0` (default) | persona picker, signed demo token | `verifyDemoToken` + `withRole` | not applicable |
-| `unconfigured` | no adapter, `DEMO_AUTH=0` | disabled | 503 with a configuration hint | — |
+| `supabase` | `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` set | **email + password, any provider** | `verifySupabaseToken` + `withRole` | n/a |
+| `simulated` | neither of the above, `DEMO_AUTH` not `0` | persona picker, signed demo token | `verifyDemoToken` + `withRole` | not applicable |
+| `unconfigured` | nothing configured and `DEMO_AUTH=0` | disabled | 503 with a configuration hint | — |
 
 Route handlers never branch on the mode: they receive a verified `JWTPayload` and run the same
 `withRole("account:joint-owner")` checks either way. Swapping the simulator for TideCloak is
 configuration, not application code.
 
+### Email + password accounts (Supabase)
+
+Registration and sign-in with **any** email provider, stored in Supabase.
+
+```bash
+# 1. Create a project at https://supabase.com/dashboard
+#    Authentication → Providers → Email: keep "Enable email provider" on.
+#    (Email confirmation is optional; if on, users must click the link before
+#     signing in — the form tells them so.)
+# 2. Project Settings → API → copy the Project URL and the `anon` / `public` key
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+
+npm run check:supabase     # validates URL, key type, provider state
+```
+
+Set the same two variables in Vercel (**Production and Preview**) and redeploy. They are
+`NEXT_PUBLIC_*`, so they are inlined at build time: adding them without a new build does nothing.
+
+**How passwords are handled — read this before promising anything to a reviewer.**
+
+- Sign-up and sign-in run **browser → Supabase** over HTTPS. Supabase Auth (GoTrue) stores the
+  account in `auth.users` as `email` + a **bcrypt hash** of the password.
+- This application never receives, logs or stores a password or a hash. Its API only ever sees
+  the short-lived access token, and verifies that token with Supabase before serving data.
+- There is no `passwords` table here, by design. A table of plaintext (or even app-hashed)
+  passwords would be a liability with no upside over the provider's vetted implementation.
+- Use the **anon** key in `NEXT_PUBLIC_*`. The service-role key bypasses row-level security and
+  must stay server-side; `npm run check:supabase` refuses it.
+
+Roles: `JOINT_OWNER_EMAILS=ada@x.com,bob@y.com` restricts `account:joint-owner` to those
+addresses (403 for anyone else). Leave it unset for the demo-open policy where every
+authenticated account is a joint owner — the decision is always made server-side from the
+verified token, never from the request body.
+
+Optional profile mirror (display names, RLS-protected):
+`supabase/migrations/0001_profiles.sql`. Credentials are unaffected by it.
+
+New accounts are keyed by their Supabase user id as the token subject, so approvals, face
+enrollment and audit rows work exactly as they do with Tide subjects. The seeded owners panel
+still lists the three demo owners; a newly registered user can create and approve requests but
+will not appear in that static list.
+
 ### Where TideCloak fits, and what the simulator stands in for
 
 | Capability | Real TideCloak mechanism | Status now |
 | :--- | :--- | :--- |
-| Browser sign-in | OIDC authorization code + PKCE against the realm | **simulated** (persona picker issues a token) |
+| Browser sign-in | OIDC authorization code + PKCE against the realm | **simulated** — or real email/password accounts via Supabase in `supabase` mode |
 | Token integrity | Realm-signed JWT; server verifies signature, issuer, `azp`, expiry | **simulated** (HMAC, same claim shape, same checks) |
 | Sender-constrained tokens | `cnf.jkt` + RFC 9449 DPoP proof verified per request | **simulated: absent** (nothing to bind) |
 | Roles / authorisation | `realm_access.roles` incl. `account:joint-owner` | **enforced for real** in `withRole` |

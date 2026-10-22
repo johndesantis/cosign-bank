@@ -3,7 +3,7 @@
 import { useTideCloak } from "@/lib/tide/bridge";
 
 export default function HomePage() {
-  const { authenticated, getValueFromIdToken, login, logout, isInitializing } = useTideCloak();
+  const { authenticated, getValueFromIdToken, login, logout, isInitializing, mode } = useTideCloak();
 
   if (isInitializing) {
     return <main className="center-screen"><div className="loader" />Loading secure bank session…</main>;
@@ -26,7 +26,7 @@ export default function HomePage() {
           {authenticated ? (
             <button className="button ghost small" onClick={logout}>Sign out</button>
           ) : (
-            <button className="button dark small" onClick={login}>Secure sign in</button>
+            <button className="button dark small" onClick={login}>{mode === "supabase" ? "Sign in" : "Secure sign in"}</button>
           )}
         </div>
       </nav>
@@ -43,7 +43,9 @@ export default function HomePage() {
             {authenticated ? (
               <a className="button lime" href="/dashboard">Open joint account <span>→</span></a>
             ) : (
-              <button className="button lime" onClick={login}>Sign in with Tide <span>→</span></button>
+              <button className="button lime" onClick={login}>
+                {mode === "supabase" ? "Sign in or create an account" : mode === "simulated" ? "Sign in (simulated)" : "Sign in with Tide"} <span>→</span>
+              </button>
             )}
             <a className="button glass" href="#security">See security model</a>
           </div>

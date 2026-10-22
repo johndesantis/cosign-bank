@@ -31,7 +31,7 @@ export type SimulatedPersona = {
 };
 
 export type TideAuth = {
-  mode: "tidecloak" | "simulated";
+  mode: "tidecloak" | "supabase" | "simulated";
   authenticated: boolean;
   isInitializing: boolean;
   token: string | null;
@@ -45,6 +45,21 @@ export type TideAuth = {
 };
 
 const TideAuthContext = createContext<TideAuth | null>(null);
+
+/**
+ * Wrapper around the shared context, so additional identity backends (Supabase)
+ * can provide the same `useTideCloak()` surface without importing this module's
+ * implementation components.
+ */
+export function TideAuthProvider({
+  value,
+  children,
+}: {
+  value: TideAuth;
+  children: ReactNode;
+}) {
+  return <TideAuthContext.Provider value={value}>{children}</TideAuthContext.Provider>;
+}
 
 function asClaim(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;

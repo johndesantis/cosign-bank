@@ -1,11 +1,13 @@
 import { adapterDiagnostics, deploymentInfo, loadTideConfig, tideConfigWarnings, isHostedDeployment } from "@/lib/auth/tidecloakConfig";
 import { authMode, authModeDescription } from "@/lib/auth/authMode";
 import { DEMO_PERSONAS } from "@/lib/auth/demo-identity";
+import { supabaseSummary } from "@/lib/auth/supabaseIdentity";
 
 // Auth configuration endpoint.
 //
 //   tidecloak → 200 with the adapter (public client + realm public keys) for
 //               server-side consumers, plus warnings and deployment identity.
+//   supabase  → 200 with a non-secret summary (project URL, role-grant policy).
 //   simulated → 200 with the simulated mode and its personas; no adapter exists.
 //   unconfigured → 500 with the error text and the deployment diagnostic.
 //
@@ -15,6 +17,21 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const deployment = deploymentInfo();
   const mode = authMode();
+
+  if (mode === "supabase") {
+    return Response.json(
+      {
+        authMode: mode,
+        description: authModeDescription(mode),
+        supabase: supabaseSummary(),
+        notice:
+          "Sign-in and registration use Supabase Auth email/password accounts. Passwords are " +
+          "hashed by Supabase and never reach this application.",
+        deployment,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   if (mode === "simulated") {
     return Response.json(

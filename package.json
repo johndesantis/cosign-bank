@@ -13,6 +13,7 @@
     "deploy:check": "node scripts/check-deploy-config.mjs",
     "verify:auth": "node scripts/verify-public-auth.mjs",
     "diagnose": "node scripts/diagnose-vercel.mjs",
+    "check:supabase": "node scripts/check-supabase-config.mjs",
     "reset": "node scripts/reset-demo-data.mjs",
     "reset:faces": "node scripts/reset-face-profiles.mjs",
     "test:unauth": "node scripts/check-unauthenticated.mjs",
@@ -21,12 +22,14 @@
     "test:app-policy": "node --experimental-strip-types --test scripts/check-app-approval-policy.mjs",
     "test:liveness": "node --experimental-strip-types --test scripts/check-liveness-policy.mjs",
     "test:face": "node --experimental-strip-types --test scripts/check-face-identity.mjs",
+    "test:supabase": "node --experimental-strip-types --test scripts/check-supabase-identity.mjs",
     "test:contract": "bash scripts/check-forseti-docker.sh",
-    "test:all": "npm run typecheck && npm run test:policy && npm run test:app-policy && npm run test:liveness && npm run test:face && npm run test:client && npm run test:unauth",
+    "test:all": "npm run typecheck && npm run test:policy && npm run test:app-policy && npm run test:liveness && npm run test:face && npm run test:supabase && npm run test:client && npm run test:unauth",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.1.1",
+    "@supabase/supabase-js": "^2.118.0",
     "@tidecloak/nextjs": "0.14.17",
     "@vladmandic/human": "^3.3.6",
     "jose": "^6.0.0",
