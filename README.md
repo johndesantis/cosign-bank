@@ -1,7 +1,5 @@
 # CoSign Bank
 
-[![Built with TideCloak](https://tide.org/badges/built-with-tidecloak.svg)](https://tide.org/tidecloak?utm_source=github&utm_medium=readme&utm_campaign=unlocked)
-
 A synthetic joint-account prototype for RMIT Hackathon 2026 — UNLOCKED, Challenge 2. It is not connected to a real bank and must not be used for real money.
 
 ## Project overview
