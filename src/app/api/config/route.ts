@@ -1,7 +1,8 @@
 import { adapterDiagnostics, deploymentInfo, loadTideConfig, tideConfigWarnings, isHostedDeployment } from "@/lib/auth/tidecloakConfig";
 import { authMode, authModeDescription } from "@/lib/auth/authMode";
 import { DEMO_PERSONAS } from "@/lib/auth/demo-identity";
-import { supabaseSummary } from "@/lib/auth/supabaseIdentity";
+import { supabaseConfigProblem, supabaseSummary } from "@/lib/auth/supabaseIdentity";
+import { supabaseEnvReport } from "@/lib/auth/supabaseEnv";
 
 // Auth configuration endpoint.
 //
@@ -17,6 +18,12 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const deployment = deploymentInfo();
   const mode = authMode();
+  // Present but unusable (half-configured, service-role key, bad URL): report it in
+  // every mode, otherwise the deployment silently falls back to the simulator.
+  const supabaseProblem = supabaseConfigProblem();
+  const problemBlock = supabaseProblem
+    ? { supabaseProblem: { code: supabaseProblem.code, message: supabaseProblem.message } }
+    : {};
 
   if (mode === "supabase") {
     return Response.json(
@@ -42,6 +49,11 @@ export async function GET() {
           "No TideCloak adapter is configured. Identity, roles and access checks are " +
           "simulated by /api/demo-auth; switch to real TideCloak by setting " +
           "CLIENT_ADAPTER (or CLIENT_ADAPTER_B64).",
+        // Presence (never values) of every accepted Supabase variable name: if the
+        // variables were added to a different project/environment, this shows "false"
+        // for all of them in the deployment that is actually serving the request.
+        supabaseEnv: supabaseEnvReport(process.env),
+        ...problemBlock,
         personas: DEMO_PERSONAS.map(({ id, givenName, ownerId, title }) => ({
           id,
           givenName,
@@ -60,7 +72,7 @@ export async function GET() {
       // A route handler has no browser hostname; trust the platform signal.
       servedFromLocalhost: !isHostedDeployment(),
     });
-    return Response.json({ ...config, authMode: mode, warnings, deployment });
+    return Response.json({ ...config, authMode: mode, warnings, deployment, ...problemBlock });
   } catch (err) {
     return Response.json(
       {
@@ -68,6 +80,8 @@ export async function GET() {
         authMode: mode,
         deployment,
         diagnostics: adapterDiagnostics(),
+        supabaseEnv: supabaseEnvReport(process.env),
+        ...problemBlock,
       },
       { status: 500 }
     );

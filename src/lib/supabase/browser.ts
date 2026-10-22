@@ -4,36 +4,68 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Browser Supabase client.
 //
-// The anon key is public by design (it is the browser key; row access is governed by
-// RLS, and password handling happens inside Supabase's auth server). The service
-// role key must never be used here — it bypasses RLS and would let the browser mint
-// anything.
+// The URL and anon key come from /api/auth/settings rather than from
+// `process.env.NEXT_PUBLIC_*`, because NEXT_PUBLIC variables are inlined at build
+// time: if the project's variables were stored under SUPABASE_URL / SUPABASE_ANON_KEY
+// (a very common convention), the server would work while the browser silently broke.
+// Fetching settings at runtime makes every accepted variable name work.
 //
-// Sessions are kept in sessionStorage rather than localStorage: the demo needs three
-// different owners signed in simultaneously (three tabs), and a token left behind in
-// a shared browser profile is a worse default than one that dies with the tab.
+// The anon key is public by design; the service-role key is refused server-side and
+// never sent here. Sessions live in sessionStorage so three owners can be signed in
+// in three tabs and a shared browser profile does not retain a token.
+
+export type PublicSupabaseSettings = {
+  url: string;
+  anonKey: string;
+  urlSource?: string;
+  keySource?: string;
+};
 
 let client: SupabaseClient | null = null;
+let pending: Promise<SupabaseClient> | null = null;
 
-export function getSupabaseBrowserClient(): SupabaseClient {
-  if (client) return client;
+async function loadSettings(): Promise<PublicSupabaseSettings> {
+  const response = await fetch("/api/auth/settings", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Could not load authentication settings (HTTP ${response.status})`);
+  }
+  const body = (await response.json()) as {
+    authMode?: string;
+    supabase?: PublicSupabaseSettings | null;
+    problem?: { message?: string };
+  };
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
+  if (!body.supabase) {
     throw new Error(
-      "Supabase is not configured: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY " +
-        "must be set at build time for the browser client.",
+      body.problem?.message ??
+        "Supabase is not configured on this deployment. Set NEXT_PUBLIC_SUPABASE_URL and " +
+          "NEXT_PUBLIC_SUPABASE_ANON_KEY (or SUPABASE_URL / SUPABASE_ANON_KEY) and redeploy.",
     );
   }
+  return body.supabase;
+}
 
-  client = createClient(url, anonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storage: typeof window === "undefined" ? undefined : window.sessionStorage,
-    },
-  });
-  return client;
+export function getSupabaseBrowserClient(): Promise<SupabaseClient> {
+  if (client) return Promise.resolve(client);
+  if (pending) return pending;
+
+  pending = loadSettings()
+    .then((settings) => {
+      client = createClient(settings.url, settings.anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: "pkce",
+          storage: typeof window === "undefined" ? undefined : window.sessionStorage,
+        },
+      });
+      return client;
+    })
+    .catch((error) => {
+      pending = null;
+      throw error;
+    });
+
+  return pending;
 }

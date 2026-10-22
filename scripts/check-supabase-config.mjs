@@ -38,12 +38,34 @@ function loadEnvFile() {
 const loaded = loadEnvFile();
 if (loaded) console.log(`${c.dim("Loaded")} ${loaded}`);
 
-const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "").trim();
-const key = (
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  process.env.SUPABASE_ANON_KEY ??
-  ""
-).trim();
+const URL_KEYS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "SUPABASE_PROJECT_URL"];
+const KEY_KEYS = [
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_KEY",
+];
+const pick = (keys) => {
+  for (const name of keys) {
+    const value = (process.env[name] ?? "").trim();
+    if (value) return { value, name };
+  }
+  return null;
+};
+const urlEntry = pick(URL_KEYS);
+const keyEntry = pick(KEY_KEYS);
+const url = urlEntry?.value ?? "";
+const key = keyEntry?.value ?? "";
+
+console.log(
+  c.dim("  detected:") +
+    " " +
+    [
+      urlEntry ? `${urlEntry.name} (URL)` : `${URL_KEYS.join(" | ")} missing`,
+      keyEntry ? `${keyEntry.name} (key)` : `${KEY_KEYS.join(" | ")} missing`,
+    ].join(" · "),
+);
 
 const problems = [];
 const warnings = [];

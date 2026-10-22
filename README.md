@@ -132,8 +132,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 npm run check:supabase     # validates URL, key type, provider state
 ```
 
-Set the same two variables in Vercel (**Production and Preview**) and redeploy. They are
-`NEXT_PUBLIC_*`, so they are inlined at build time: adding them without a new build does nothing.
+Set the same two variables in Vercel (**Production and Preview**) and redeploy. Environment
+variable changes never apply to an existing deployment, so a new build is required.
+
+Accepted variable names (the browser gets its settings from `/api/auth/settings`, so **any** of
+these works — `NEXT_PUBLIC_*` inlining is no longer required):
+
+| Purpose | Accepted names |
+| :--- | :--- |
+| Project URL | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_URL`, `SUPABASE_PROJECT_URL` |
+| Public key | `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_KEY` |
+
+A service-role/secret key in any of those names is **refused**: the app falls back to the
+simulator and the page shows "Supabase is incomplete on this deployment" with the reason, rather
+than shipping a key that bypasses row-level security to browsers.
 
 **How passwords are handled — read this before promising anything to a reviewer.**
 
@@ -297,6 +309,9 @@ guessing. The table below is the short version.
 
 | Symptom | Meaning |
 | :--- | :--- |
+| Supabase keys added in Vercel, site still shows the SIMULATED IDENTITY banner, `/api/config` → `supabaseEnv` all `false` | The variables are not present in **this** build. Check the Vercel project ID (see below), the environment scope (Production vs Preview), and redeploy. |
+| `/api/config` → `supabaseProblem.code: "missing-key"` or `"missing-url"` | Only half the pair is set. |
+| `supabaseProblem.code: "service-role-key"` | A secret key is in a public variable. Swap in the anon/public key. |
 | "No TideCloak adapter config found…" page, all sources `not set` | Nothing reached this deployment. Check the project ID on the page matches the project you edited, the environment scope (Production vs Preview vs Development), and redeploy. Variables are not passed to fork PR builds. |
 | A variable listed `invalid` | The paste was mangled or truncated. Use `CLIENT_ADAPTER_B64`. |
 | A variable listed `empty (0 chars)` | The variable exists with no value. |

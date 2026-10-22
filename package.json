@@ -22,7 +22,7 @@
     "test:app-policy": "node --experimental-strip-types --test scripts/check-app-approval-policy.mjs",
     "test:liveness": "node --experimental-strip-types --test scripts/check-liveness-policy.mjs",
     "test:face": "node --experimental-strip-types --test scripts/check-face-identity.mjs",
-    "test:supabase": "node --experimental-strip-types --test scripts/check-supabase-identity.mjs",
+    "test:supabase": "node --experimental-strip-types --test scripts/check-supabase-identity.mjs scripts/check-supabase-env.mjs",
     "test:contract": "bash scripts/check-forseti-docker.sh",
     "test:all": "npm run typecheck && npm run test:policy && npm run test:app-policy && npm run test:liveness && npm run test:face && npm run test:supabase && npm run test:client && npm run test:unauth",
     "typecheck": "tsc --noEmit"

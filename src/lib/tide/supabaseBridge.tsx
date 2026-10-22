@@ -25,33 +25,42 @@ export function SupabaseBridge({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
 
-  // Restore and subscribe to the session.
+  // Restore and subscribe to the session. The client is created from runtime
+  // settings (/api/auth/settings), so no NEXT_PUBLIC_* build-time inlining is needed.
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
     let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      setSession(data.session);
-      setIsInitializing(false);
-    });
+    getSupabaseBrowserClient()
+      .then(async (supabase) => {
+        if (cancelled) return;
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        setSession(data.session);
+        setIsInitializing(false);
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((event, next) => {
-      setSession(next);
-      if (event === "SIGNED_IN") {
-        setOpen(false);
-        setPassword("");
-        setError(null);
-      }
-      if (event === "SIGNED_OUT") {
-        setSession(null);
-      }
-    });
+        const { data: subscription } = supabase.auth.onAuthStateChange((event, next) => {
+          setSession(next);
+          if (event === "SIGNED_IN") {
+            setOpen(false);
+            setPassword("");
+            setError(null);
+          }
+          if (event === "SIGNED_OUT") setSession(null);
+        });
+        unsubscribe = () => subscription.subscription.unsubscribe();
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setInitializationError(err instanceof Error ? err.message : "Authentication is unavailable");
+        setIsInitializing(false);
+      });
 
     return () => {
       cancelled = true;
-      subscription.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 
@@ -59,11 +68,17 @@ export function SupabaseBridge({ children }: { children: ReactNode }) {
     setMode("signin");
     setError(null);
     setNotice(null);
+    // Surface a configuration problem instead of an empty modal.
+    if (initializationError) {
+      setError(initializationError);
+    }
     setOpen(true);
-  }, []);
+  }, [initializationError]);
 
   const logout = useCallback(() => {
-    void getSupabaseBrowserClient().auth.signOut();
+    void getSupabaseBrowserClient()
+      .then((supabase) => supabase.auth.signOut())
+      .catch(() => undefined);
     setOpen(false);
   }, []);
 
@@ -84,7 +99,14 @@ export function SupabaseBridge({ children }: { children: ReactNode }) {
       }
 
       setBusy(true);
-      const supabase = getSupabaseBrowserClient();
+      let supabase;
+      try {
+        supabase = await getSupabaseBrowserClient();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Authentication is unavailable");
+        setBusy(false);
+        return;
+      }
       try {
         if (mode === "signup") {
           const { data, error: signUpError } = await supabase.auth.signUp({
@@ -144,11 +166,17 @@ export function SupabaseBridge({ children }: { children: ReactNode }) {
 
   const secureFetch = useCallback(
     async (input: RequestInfo | URL, init?: RequestInit) => {
-      const supabase = getSupabaseBrowserClient();
       // Refresh if the access token is close to expiry, so a long approval window
       // does not fail on a stale token.
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
+      let token: string | undefined;
+      try {
+        const supabase = await getSupabaseBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token;
+      } catch {
+        // No credentials available: let the request proceed unauthenticated and the
+        // server answer 401/503 with its own explanation.
+      }
       const headers = new Headers(init?.headers);
       if (token) headers.set("Authorization", `Bearer ${token}`);
       return fetch(input, { ...init, headers });
@@ -256,6 +284,9 @@ export function SupabaseBridge({ children }: { children: ReactNode }) {
                 </label>
 
                 {error && <p className="form-error">{error}</p>}
+            {initializationError && !error && (
+              <p className="form-error">{initializationError}</p>
+            )}
                 {notice && <p style={{ color: "var(--forest)", fontSize: 12 }}>{notice}</p>}
 
                 <p style={{ color: "var(--muted)", fontSize: 11, lineHeight: 1.5 }}>

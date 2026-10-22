@@ -6,6 +6,7 @@ import { ConfigWarnings } from "./config-warnings";
 import { SimulatedIdentityBanner } from "./simulated-identity-banner";
 import { tryLoadTideConfig, adapterDiagnostics } from "@/lib/auth/tidecloakConfig";
 import { authMode } from "@/lib/auth/authMode";
+import { supabaseConfigProblem } from "@/lib/auth/supabaseIdentity";
 import "./globals.css";
 
 // Authentication is resolved per request:
@@ -36,6 +37,9 @@ export default async function RootLayout({
   const host = (await headers()).get("host");
   const { config, error, warnings } = tryLoadTideConfig(host);
   const mode = authMode();
+  // A half-configured Supabase project must not look like "Supabase is on": say which
+  // variable is missing while the simulator serves the request.
+  const supabaseProblem = supabaseConfigProblem();
 
   return (
     <html lang="en">
@@ -50,6 +54,22 @@ export default async function RootLayout({
         ) : mode === "simulated" ? (
           <SimulatedProviders>
             <SimulatedIdentityBanner />
+            {supabaseProblem && (
+              <div
+                role="alert"
+                style={{
+                  padding: "12px 24px",
+                  background: "#ffe0d8",
+                  borderBottom: "1px solid #f1a99b",
+                  color: "#8e2f25",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Supabase is incomplete on this deployment.</strong>{" "}
+                {supabaseProblem.message}
+              </div>
+            )}
             {children}
           </SimulatedProviders>
         ) : (

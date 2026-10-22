@@ -4,6 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import type { JWTPayload } from "jose";
 import { JOINT_OWNER_ROLE, parseAllowlist, resolveRoles } from "./roles";
+import {
+  resolveSupabaseEnv,
+  supabaseEnvReport,
+  type SupabaseConfig,
+  type SupabaseEnvProblem,
+} from "./supabaseEnv";
 
 // Supabase email/password identity.
 //
@@ -33,19 +39,18 @@ import { JOINT_OWNER_ROLE, parseAllowlist, resolveRoles } from "./roles";
 
 export { JOINT_OWNER_ROLE, resolveRoles };
 
-export type SupabaseConfig = { url: string; anonKey: string };
+export type { SupabaseConfig };
 
+/** Usable configuration, or null when absent/misconfigured. */
 export function getSupabaseConfig(): SupabaseConfig | null {
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "").trim();
-  const anonKey = (
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.SUPABASE_ANON_KEY ??
-    ""
-  ).trim();
+  const resolved = resolveSupabaseEnv(process.env);
+  return resolved?.config ?? null;
+}
 
-  if (!url || !anonKey) return null;
-  if (!/^https?:\/\//.test(url)) return null;
-  return { url: url.replace(/\/+$/, ""), anonKey };
+/** Present-but-unusable configuration (missing half, service-role key, bad URL). */
+export function supabaseConfigProblem(): SupabaseEnvProblem | null {
+  const resolved = resolveSupabaseEnv(process.env);
+  return resolved?.problem ?? null;
 }
 
 export function supabaseConfigured(): boolean {
@@ -178,10 +183,16 @@ export async function verifySupabaseToken(token: string): Promise<JWTPayload> {
 export function supabaseSummary() {
   const config = getSupabaseConfig();
   const allowlist = jointOwnerAllowlist();
+  const problem = supabaseConfigProblem();
   return {
     configured: config !== null,
     url: config?.url ?? null,
+    urlSource: config?.urlSource ?? null,
+    keySource: config?.keySource ?? null,
+    problem: problem?.code ?? null,
+    problemMessage: problem?.message ?? null,
     roleGrant: allowlist.length > 0 ? "allowlist" : "any-authenticated-user",
     allowlistSize: allowlist.length,
+    env: supabaseEnvReport(process.env),
   };
 }
